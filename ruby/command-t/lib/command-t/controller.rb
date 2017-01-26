@@ -34,6 +34,7 @@ module CommandT
         rescue
         end
       end
+      @nowait = '<nowait>' if ::VIM::evaluate('v:version') >= 704
     end
 
     # For possible use in status lines.
@@ -320,15 +321,15 @@ module CommandT
     guard :list_matches
 
     def tab_command
-      VIM::get_string('g:CommandTAcceptSelectionTabCommand') || 'tabe'
+      VIM::get_string('g:CommandTAcceptSelectionTabCommand') || 'CommandTOpen tabe'
     end
 
     def split_command
-      VIM::get_string('g:CommandTAcceptSelectionSplitCommand') || 'sp'
+      VIM::get_string('g:CommandTAcceptSelectionSplitCommand') || 'CommandTOpen sp'
     end
 
     def vsplit_command
-      VIM::get_string('g:CommandTAcceptSelectionVSplitCommand') || 'vs'
+      VIM::get_string('g:CommandTAcceptSelectionVSplitCommand') || 'CommandTOpen vs'
     end
 
   private
@@ -430,7 +431,7 @@ module CommandT
         VIM::get_bool('&hidden') ||
         VIM::get_bool('&autowriteall') && !VIM::get_bool('&readonly') ||
         current_buffer_visible_in_other_window
-        VIM::get_string('g:CommandTAcceptSelectionCommand') || 'e'
+        VIM::get_string('g:CommandTAcceptSelectionCommand') || 'CommandTOpen e'
       else
         'sp'
       end
@@ -468,7 +469,7 @@ module CommandT
     end
 
     def map(key, function, param = nil)
-      ::VIM::command "noremap <silent> <buffer> #{key} " \
+      ::VIM::command "noremap <silent> <buffer> #{@nowait} #{key} " \
         ":call commandt#private##{function}(#{param})<CR>"
     end
 
@@ -556,6 +557,14 @@ module CommandT
       @mru_finder ||= CommandT::Finder::MRUBufferFinder.new
     end
 
+    def wildignore
+      ignore = VIM::get_string('g:CommandTWildIgnore')
+      if ignore.nil? && VIM::exists?('&wildignore')
+        ignore = ::VIM::evaluate('&wildignore').to_s
+      end
+      VIM::wildignore_to_regexp(ignore) unless ignore.nil?
+    end
+
     def file_finder
       @file_finder ||= CommandT::Finder::FileFinder.new nil,
         :max_depth              => VIM::get_number('g:CommandTMaxDepth'),
@@ -564,9 +573,10 @@ module CommandT
         :always_show_dot_files  => VIM::get_bool('g:CommandTAlwaysShowDotFiles'),
         :never_show_dot_files   => VIM::get_bool('g:CommandTNeverShowDotFiles'),
         :scan_dot_directories   => VIM::get_bool('g:CommandTScanDotDirectories'),
-        :wild_ignore            => VIM::get_string('g:CommandTWildIgnore'),
+        :wildignore             => wildignore,
         :scanner                => VIM::get_string('g:CommandTFileScanner'),
-        :git_scan_submodules    => VIM::get_bool('g:CommandTGitScanSubmodules')
+        :git_scan_submodules    => VIM::get_bool('g:CommandTGitScanSubmodules'),
+        :git_include_untracked  => VIM::get_bool('g:CommandTGitIncludeUntracked')
     end
 
     def help_finder
